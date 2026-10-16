@@ -47,8 +47,18 @@ async function readBill(businessId: string, file: File): Promise<Scanned> {
   const { base64 } = await toJpegBase64(file);
   const { data, error } = await supabase.functions.invoke('scan-bill', { body: { business_id: businessId, image_base64: base64, media_type: 'image/jpeg' } });
   if (error) {
-    let msg = 'The bill could not be read. Please try again.';
-    try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+    // Give a reason the owner can act on instead of one generic message.
+    const ctx = (error as { context?: unknown }).context;
+    if (!(ctx instanceof Response)) {
+      throw new Error('Could not reach the bill reader. Check the internet. If it keeps failing, the "scan-bill" function is not deployed on Supabase, or APP_ORIGINS does not include this website address.');
+    }
+    let msg = `The bill could not be read (error ${ctx.status}). Please try again.`;
+    try {
+      const b = await ctx.json();
+      if (b?.error) msg = b.error;
+      else if (ctx.status === 404) msg = 'The bill reader is not set up: deploy the "scan-bill" function on Supabase (see docs/BILL_SCAN.md).';
+      else if (b?.message) msg = `${msg} ${b.message}`;
+    } catch { if (ctx.status === 404) msg = 'The bill reader is not set up: deploy the "scan-bill" function on Supabase (see docs/BILL_SCAN.md).'; }
     throw new Error(msg);
   }
   return data as Scanned;

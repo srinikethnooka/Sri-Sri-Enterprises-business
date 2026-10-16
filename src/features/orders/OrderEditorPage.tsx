@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useFieldArray, useForm, useWatch, type Control } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch, type Control, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -228,8 +228,31 @@ function OrderForm({ existing }: { existing: Awaited<ReturnType<typeof getOrderF
     navigate(`/orders/${orderId}${v.invoice ? '?share=1' : ''}`, { replace: true });
   };
 
+  // Some fields with mistakes may be scrolled out of view: say what is wrong next to the Save button
+  // and move to the first one, so saving never fails silently.
+  const onInvalid = (errs: FieldErrors<Form>) => {
+    const msgs: string[] = [];
+    if (errs.customer_id) msgs.push('Choose a customer');
+    errs.lines?.forEach?.((l, i) => {
+      if (!l) return;
+      const first = Object.values(l).find((x) => x && typeof x === 'object' && 'message' in x) as { message?: string } | undefined;
+      if (first?.message) msgs.push(`Item ${i + 1}: ${first.message}`);
+    });
+    if (errs.lines?.message) msgs.push(errs.lines.message);
+    for (const [k, label] of [['order_discount', 'Order discount'], ['delivery_charge', 'Delivery charge'], ['advance', 'Advance'], ['delivery_address', 'Delivery address'], ['customer_notes', 'Note for the customer'], ['internal_notes', 'Internal notes']] as const) {
+      const e = errs[k];
+      if (e?.message) msgs.push(`${label}: ${e.message}`);
+    }
+    setErr(`Not saved yet. Please fix: ${msgs.length ? msgs.join(' · ') : 'the highlighted fields'}`);
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>('[aria-invalid="true"]');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el?.focus({ preventScroll: true });
+    });
+  };
+
   return (
-    <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form noValidate onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4">
       <PageHeader
         back={<Link to={existing ? `/orders/${existing.order.id}` : '/orders'} className="mb-1 inline-flex items-center gap-1 text-sm text-ink-500"><ArrowLeft className="h-4 w-4" /> Back</Link>}
         title={existing ? `Edit ${existing.order.order_no}` : 'New order'}
