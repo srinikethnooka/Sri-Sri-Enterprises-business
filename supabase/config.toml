@@ -1,0 +1,61 @@
+# Supabase CLI configuration (local development). Production settings are made in the dashboard.
+project_id = "sri-sri-boutique"
+
+[api]
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+port = 54323
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/**"]
+jwt_expiry = 3600
+enable_signup = true
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+double_confirm_changes = true
+secure_password_change = true
+
+[auth.rate_limit]
+email_sent = 4
+sign_in_sign_ups = 30
+token_verifications = 30
+
+[storage]
+file_size_limit = "10MiB"
+
+[functions.invoice-pdf]
+verify_jwt = true
+import_map = "./functions/deno.json"
+static_files = ["./functions/_shared/fonts/*.ttf"]
+
+[functions.shared-invoice]
+# Public: protected by an unguessable token + rate limiting instead of a login.
+verify_jwt = false
+import_map = "./functions/deno.json"
+static_files = ["./functions/_shared/fonts/*.ttf"]
+
+[functions.scan-bill]
+verify_jwt = true
+import_map = "./functions/deno.json"
+
+[functions.whatsapp-send]
+verify_jwt = true
+import_map = "./functions/deno.json"
+static_files = ["./functions/_shared/fonts/*.ttf"]
+
+[functions.whatsapp-webhook]
+# Called by Meta; protected by the X-Hub-Signature-256 check instead of a login.
+verify_jwt = false
+import_map = "./functions/deno.json"
